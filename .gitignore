@@ -1,0 +1,13 @@
+build/
+out/
+cmake-build-*/
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.db
+*.db-wal
+*.db-shm
+*.tmp
+*.bmp

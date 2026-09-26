@@ -1,0 +1,2 @@
+SQLite 3.53.4 amalgamation (public domain)
+sqlite3.c / sqlite3.h / sqlite3ext.h descargados de https://www.sqlite.org/download.html
