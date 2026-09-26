@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_C_STANDARD 11)
 
+# CRT estático (MT) para TODOS los targets: mezclar el /MT del exe con el /MD por defecto
+# de sqlite3_edgedock produce LNK4098 (MSVCRT) y símbolos __imp_* del UCRT sin resolver.
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 # Perfil "extremo" para hardware de bajos recursos (Celeron N4120, 4 núcleos): SSE2 fijo,
 # optimización agresiva, metadatos RTTI fuera y excepciones desactivadas en el hot-path.
 option(EDGEDOCK_XTREME "Optimizaciones extremas y sin excepciones en el hot-path" ON)
@@ -130,6 +134,7 @@ endif()
 
 target_link_libraries(EdgeDockStudio PRIVATE
     sqlite3_edgedock
+    synchronization   # WaitOnAddress / WakeByAddressAll (ThreadPoolN4120)
     d2d1
     dwrite
     user32
