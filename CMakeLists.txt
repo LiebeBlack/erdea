@@ -110,7 +110,8 @@ if(MSVC)
         /O2 /Ob2 /Oi /Ot /GT /Gy /Gw /GL
         /fp:fast
         /arch:SSE2
-        /wd4100)   # parámetros sin usar en los thunks de Win32
+        /wd4100   # parámetros sin usar en los thunks de Win32
+        /wd4324)  # padding intencional de alignas (líneas de caché)
     target_link_options(EdgeDockStudio PRIVATE /LTCG /OPT:REF /OPT:ICF)
     set_property(TARGET EdgeDockStudio PROPERTY MSVC_RUNTIME_LIBRARY
         "MultiThreaded$<$<CONFIG:Debug>:Debug>")

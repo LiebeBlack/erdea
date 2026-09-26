@@ -787,7 +787,7 @@ std::wstring ToTitleCase(std::wstring_view text) {
 }
 
 std::wstring ToSentenceCase(std::wstring_view text) {
-    const std::wstring lower = text::ToLower(text::NormalizeWhitespace(text));
+    const std::wstring lower = text::ToLower(NormalizeWhitespace(text));   // la del propio módulo (modules)
     std::wstring out;
     out.reserve(lower.size());
     bool startOfSentence = true;

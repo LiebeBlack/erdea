@@ -63,7 +63,9 @@ public:
 template <typename T>
 using FrameAllocator = std::pmr::polymorphic_allocator<T>;
 
-using FrameString = std::pmr::basic_string<wchar_t, std::char_traits<wchar_t>, FrameAllocator<wchar_t>>;
+// std::pmr::basic_string en MSVC solo acepta (Elem, Traits): se usa std::basic_string con el
+// allocator PMR explícito, que es exactamente el mismo tipo resultante.
+using FrameString = std::basic_string<wchar_t, std::char_traits<wchar_t>, FrameAllocator<wchar_t>>;
 
 FrameString FrameStringV(const wchar_t* format, ...);
 FrameString FrameStringOf(std::wstring_view text);

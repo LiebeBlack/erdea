@@ -171,7 +171,7 @@ bool App::RegisterHotkeys() {
         anyRegistered |= ::RegisterHotKey(sinkHwnd_, kHotkeyFocus, modifiers, key) != FALSE;
     }
     if (ParseHotkey(config_.hotkeyCaptureNote, modifiers, key)) {
-        anyRegistered |= ::RegisterHotKey(sinkHwnd_, kHotkeyCaptureNote, modifiers, key) != FALSE;
+        anyRegistered |= ::RegisterHotKey(sinkHwnd_, kHotkeyCapture, modifiers, key) != FALSE;
     }
     hotkeysRegistered_ = anyRegistered;
     if (!anyRegistered) {
@@ -184,7 +184,7 @@ void App::UnregisterHotkeys() {
     if (!hotkeysRegistered_) return;
     ::UnregisterHotKey(sinkHwnd_, kHotkeyToggle);
     ::UnregisterHotKey(sinkHwnd_, kHotkeyFocus);
-    ::UnregisterHotKey(sinkHwnd_, kHotkeyCaptureNote);
+    ::UnregisterHotKey(sinkHwnd_, kHotkeyCapture);
     hotkeysRegistered_ = false;
 }
 

@@ -230,7 +230,7 @@ bool ScratchpadManager::FlushNow() {
     std::wstring content;
     const LRESULT length = ::GetWindowTextLengthW(editor_);
     content.resize(static_cast<size_t>(length) + 1, L'\0');
-    if (length > 0) ::GetWindowTextW(editor_, content.data(), length + 1);
+    if (length > 0) ::GetWindowTextW(editor_, content.data(), static_cast<int>(length + 1));
     content.resize(static_cast<size_t>(length));
     return WriteNoteFile(notes_[static_cast<size_t>(activeIndex_)].path, content);
 }
@@ -447,9 +447,10 @@ HWND ScratchpadManager::EnsureEditor() {
 void ScratchpadManager::LayoutEditor(const RECT& clientRect, int dpi) {
     if (editor_ == nullptr) return;
     (void)dpi;
-    ::SetWindowPos(editor_, nullptr, clientRect.left, clientRect.top,
-                   std::max(10, clientRect.right - clientRect.left),
-                   std::max(10, clientRect.bottom - clientRect.top), SWP_NOZORDER | SWP_NOACTIVATE);
+    const int editorWidth = std::max(10, static_cast<int>(clientRect.right - clientRect.left));
+    const int editorHeight = std::max(10, static_cast<int>(clientRect.bottom - clientRect.top));
+    ::SetWindowPos(editor_, nullptr, clientRect.left, clientRect.top, editorWidth, editorHeight,
+                   SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 void ScratchpadManager::ShowEditor(bool visible) {

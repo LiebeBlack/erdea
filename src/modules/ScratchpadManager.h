@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <memory_resource>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "core/Config.h"
@@ -81,7 +82,7 @@ public:
 private:
     // Slot de publicación sin heap: el hilo de UI escribe, un worker lee y libera.
     struct SaveSlot {
-        std::pmr::wstring text{std::pmr::polymorphic_allocator<wchar_t>{mem::PoolResource::Global()}};
+        std::pmr::wstring text{std::pmr::polymorphic_allocator<wchar_t>{&mem::PoolResource::Global()}};
         std::wstring path;
         std::atomic<bool> busy{false};
         std::atomic<uint64_t> generation{0};
@@ -97,7 +98,7 @@ private:
     bool PublishSave();
     static void SaveTask(void* a, void* b, void* c, void* d);
     void CompleteSave(size_t slotIndex);
-    bool WriteNoteFile(const std::wstring& path, const std::wstring& text);
+    bool WriteNoteFile(const std::wstring& path, std::wstring_view text);
     std::wstring BuildNotePath(const std::wstring& hint) const;
     void LoadNotesFromDisk();
     bool LoadNoteText(const std::wstring& path, std::wstring& out) const;

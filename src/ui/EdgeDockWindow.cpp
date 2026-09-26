@@ -773,7 +773,7 @@ void EdgeDockWindow::CreateSearchControl() {
     if (searchEdit_ != nullptr) return;
     searchEdit_ = ::CreateWindowExW(0, L"EDIT", L"",
                                     WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_LEFT,
-                                    0, 0, 10, 10, hwnd_, reinterpret_cast<HMENU>(kIdSearchEdit),
+                                    0, 0, 10, 10, hwnd_, reinterpret_cast<HMENU>(static_cast<INT_PTR>(kIdSearchEdit)),
                                     instance_, nullptr);
     if (searchEdit_ == nullptr) {
         paths::AppendLog(L"EdgeDockWindow: no se pudo crear el control de búsqueda");
@@ -1126,15 +1126,15 @@ void EdgeDockWindow::RunClipCommand(int commandId, int visibleIndex) {
     if (action >= 21 && action <= 28) {
         switch (action) {
             case 21:
-                SetStatus(OpenFolder(paths::AppDataRoot()).ok ? L"Carpeta de datos abierta"
+                SetStatus(sysutil::OpenFolder(paths::AppDataRoot()).ok ? L"Carpeta de datos abierta"
                                                               : L"No se pudo abrir la carpeta", true);
                 break;
             case 22:
-                SetStatus(EditTextFile(paths::ConfigFile()).ok ? L"config.json abierto"
+                SetStatus(sysutil::EditTextFile(paths::ConfigFile()).ok ? L"config.json abierto"
                                                                : L"No hay editor asociado a .json", true);
                 break;
             case 23:
-                SetStatus(OpenFolder(config_->EffectiveNotesFolder()).ok ? L"Carpeta de notas abierta"
+                SetStatus(sysutil::OpenFolder(config_->EffectiveNotesFolder()).ok ? L"Carpeta de notas abierta"
                                                                          : L"No se pudo abrir notas", true);
                 break;
             case 24: {

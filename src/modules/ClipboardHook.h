@@ -4,6 +4,7 @@
 // mantiene el historial en memoria y resuelve la Búsqueda Instantánea sobre ese vector.
 
 #include <windows.h>
+#include <shellapi.h>   // HDROP (WIN32_LEAN_AND_MEAN la excluye de windows.h)
 
 #include <functional>
 #include <string>
