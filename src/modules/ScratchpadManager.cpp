@@ -216,7 +216,7 @@ void ScratchpadManager::CompleteSave(size_t slotIndex) {
     if (host_ != nullptr) ::PostMessageW(host_, kMsgNoteSaved, 0, 0);
 }
 
-bool ScratchpadManager::WriteNoteFile(const std::wstring& path, const std::wstring& text) {
+bool ScratchpadManager::WriteNoteFile(const std::wstring& path, std::wstring_view text) {
     if (path.empty()) return false;
     // El .md se persiste en UTF-8 con escritura atómica (temp + MoveFileEx).
     return paths::WriteTextFileAtomic(path, text::ToUtf8(text));
