@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Compilar + instalador (Windows x64)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar amalgama SQLite vendorizada
+        shell: pwsh
+        run: |
+          if (Test-Path 'third_party/sqlite3/sqlite3.c') {
+            Write-Output 'SQLite 3.53.4 vendorizada presente: build reproducible sin red.'
+          } else {
+            Write-Output '::warning::Falta third_party/sqlite3/sqlite3.c; CMake la descargara con FetchContent.'
+          }
+
+      - name: Configurar CMake (Visual Studio 2022, x64)
+        run: cmake -S . -B build -A x64
+
+      - name: Compilar Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Verificar ejecutable
+        shell: pwsh
+        run: |
+          $exe = 'build/Release/EdgeDockStudio.exe'
+          if (-not (Test-Path $exe)) { throw "La compilacion no produjo $exe" }
+          $info = Get-Item $exe
+          Write-Output ("EdgeDockStudio.exe OK: {0:N0} bytes" -f $info.Length)
+
+      - name: Generar icono del instalador
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging/make-icon.ps1 -OutFile build/EdgeDock.ico
+
+      - name: Localizar Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command 'iscc' -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $pre = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+            if (Test-Path $pre) { $iscc = $pre }
+          }
+          if (-not $iscc) {
+            Write-Output 'Inno Setup no esta preinstalado: instalando con Chocolatey...'
+            choco install innosetup --yes --no-progress
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          }
+          if (-not (Test-Path $iscc)) { throw 'No se encontro ISCC.exe ni tras instalar Inno Setup' }
+          Add-Content -Path $env:GITHUB_ENV -Value "ISCC=$iscc"
+          Write-Output "ISCC: $iscc"
+
+      - name: Compilar instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          $sha = '${{ github.sha }}'.Substring(0, 7)
+          & $env:ISCC "/DAppVersion=0.0.0-ci.$sha" packaging/EdgeDockStudio.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC termino con el codigo $LASTEXITCODE" }
+          $setup = Get-ChildItem 'dist/installer/EdgeDockStudio-Setup-*.exe' | Select-Object -First 1
+          if ($null -eq $setup) { throw 'El instalador no se genero' }
+          Write-Output ("Instalador OK: {0} ({1:N0} bytes)" -f $setup.Name, $setup.Length)
+
+      - name: Subir ejecutable portable
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdgeDockStudio-portable
+          path: build/Release/EdgeDockStudio.exe
+          if-no-files-found: error
+
+      - name: Subir instalador
+        uses: actions/upload-artifact@v4
+        with:
+          name: EdgeDockStudio-installer
+          path: dist/installer/*.exe
+          if-no-files-found: error

@@ -42,6 +42,24 @@ ultra-minimalista: fondo negro puro OLED (0, 0, 0), texto blanco y acentos en ci
   lista de clips sólo recorre las filas visibles.
 - Los clips soltados y los buffers de autoguardado viven en `mem::PoolResource::Global()`.
 
+## CI/CD y empaquetado
+
+- `.github/workflows/ci.yml` — en cada push y pull request sobre `windows-latest`: configura CMake (Visual Studio 2022, x64), compila `Release`, verifica que exista `EdgeDockStudio.exe`, genera el icono y compila el instalador con Inno Setup (valida el pipeline completo sin publicar nada). Artefactos descargables: `EdgeDockStudio-portable` y `EdgeDockStudio-installer`.
+- `.github/workflows/release.yml` — al empujar una etiqueta `vX.Y.Z`: compila, empaqueta `EdgeDockStudio-Portable-*.zip`, `EdgeDockStudio-Setup-*.exe` y `SHA256SUMS.txt`, y publica el release de GitHub (queda como prerelease si la etiqueta lleva sufijo, p. ej. `v1.2.0-beta`). También admite ejecución manual (`workflow_dispatch`) con una versión de prueba para ensayar el empaquetado sin publicar.
+- `packaging/EdgeDockStudio.iss` — instalador Inno Setup 6: instala en `Program Files` (x64), accesos directos con icono, autoarranque opcional vía HKCU y desinstalación que conserva `%APPDATA%\EdgeDock`.
+- `packaging/make-icon.ps1` — genera `build/EdgeDock.ico` a código (tarjeta OLED con barras cian/púrpura), sin binarios versionados; el `.iss` falla con mensaje claro si el icono o el ejecutable no existen.
+
+### Compilar el instalador en local
+
+```pwsh
+cmake -S . -B build -A x64
+cmake --build build --config Release --parallel
+powershell -ExecutionPolicy Bypass -File packaging/make-icon.ps1 -OutFile build/EdgeDock.ico
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.0 packaging/EdgeDockStudio.iss
+```
+
+El resultado queda en `dist/installer/EdgeDockStudio-Setup-1.0.0.exe`.
+
 ## Terceros
 
 `third_party/sqlite3` contiene la amalgama de SQLite 3.53.4 (dominio público) con FTS5

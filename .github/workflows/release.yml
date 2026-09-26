@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version de prueba (formato X.Y.Z o vX.Y.Z). Compila y empaqueta, NO publica release."
+        required: false
+        default: "0.0.0-dryrun"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Compilar y empaquetar (Windows x64)
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validar version (tag o input manual)
+        shell: pwsh
+        run: |
+          $raw = '${{ github.event.inputs.version || github.ref_name }}'
+          if ($raw -notmatch '^\d+\.\d+\.\d+(-[0-9A-Za-z.\-]+)?$') {
+            throw "Version '$raw' no valida: usa el formato vX.Y.Z (sufijo -prerelease opcional)"
+          }
+          $version = $raw.TrimStart('v')
+          Add-Content -Path $env:GITHUB_ENV -Value "RELEASE_VERSION=$version"
+          Write-Output "Version del release: $version"
+
+      - name: Verificar amalgama SQLite vendorizada
+        shell: pwsh
+        run: |
+          if (Test-Path 'third_party/sqlite3/sqlite3.c') {
+            Write-Output 'SQLite 3.53.4 vendorizada presente: build reproducible sin red.'
+          } else {
+            Write-Output '::warning::Falta third_party/sqlite3/sqlite3.c; CMake la descargara con FetchContent.'
+          }
+
+      - name: Configurar CMake (Visual Studio 2022, x64)
+        run: cmake -S . -B build -A x64
+
+      - name: Compilar Release
+        run: cmake --build build --config Release --parallel
+
+      - name: Verificar ejecutable
+        shell: pwsh
+        run: |
+          $exe = 'build/Release/EdgeDockStudio.exe'
+          if (-not (Test-Path $exe)) { throw "La compilacion no produjo $exe" }
+          $info = Get-Item $exe
+          Write-Output ("EdgeDockStudio.exe OK: {0:N0} bytes" -f $info.Length)
+
+      - name: Generar icono del instalador
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File packaging/make-icon.ps1 -OutFile build/EdgeDock.ico
+
+      - name: Localizar Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = (Get-Command 'iscc' -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $pre = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+            if (Test-Path $pre) { $iscc = $pre }
+          }
+          if (-not $iscc) {
+            Write-Output 'Inno Setup no esta preinstalado: instalando con Chocolatey...'
+            choco install innosetup --yes --no-progress
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          }
+          if (-not (Test-Path $iscc)) { throw 'No se encontro ISCC.exe ni tras instalar Inno Setup' }
+          Add-Content -Path $env:GITHUB_ENV -Value "ISCC=$iscc"
+          Write-Output "ISCC: $iscc"
+
+      - name: Compilar instalador (Inno Setup)
+        shell: pwsh
+        run: |
+          & $env:ISCC "/DAppVersion=$env:RELEASE_VERSION" packaging/EdgeDockStudio.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC termino con el codigo $LASTEXITCODE" }
+          $setup = Get-ChildItem 'dist/installer/EdgeDockStudio-Setup-*.exe' | Select-Object -First 1
+          if ($null -eq $setup) { throw 'El instalador no se genero' }
+          Write-Output ("Instalador OK: {0} ({1:N0} bytes)" -f $setup.Name, $setup.Length)
+
+      - name: Empaquetar ZIP portable
+        shell: pwsh
+        run: |
+          $stage = 'dist/portable/EdgeDockStudio'
+          New-Item -ItemType Directory -Force -Path $stage | Out-Null
+          Copy-Item 'build/Release/EdgeDockStudio.exe' $stage
+          Copy-Item 'build/EdgeDock.ico' $stage
+          Copy-Item 'README.md' $stage
+          Compress-Archive -Path 'dist/portable/*' -DestinationPath "dist/EdgeDockStudio-Portable-$env:RELEASE_VERSION.zip" -Force
+          Remove-Item -Recurse -Force 'dist/portable'
+          Get-ChildItem 'dist' -File | Select-Object Name, Length
+
+      - name: Generar checksums SHA-256
+        shell: pwsh
+        run: |
+          $paquetes = Get-ChildItem 'dist' -Recurse -File | Where-Object { $_.Name -notlike 'SHA256SUMS*' }
+          $lineas = $paquetes | ForEach-Object {
+            '{0}  {1}' -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant(), $_.Name
+          }
+          $lineas | Set-Content -Path 'dist/SHA256SUMS.txt' -Encoding ascii
+          Get-Content 'dist/SHA256SUMS.txt'
+
+      - name: Subir paquetes del release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-payload
+          path: |
+            dist/installer/*.exe
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+
+  publish:
+    name: Publicar release en GitHub
+    runs-on: ubuntu-latest
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Descargar paquetes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-payload
+          path: dist
+
+      - name: Publicar release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: EdgeDock Studio ${{ github.ref_name }}
+          files: |
+            dist/installer/*.exe
+            dist/*.zip
+            dist/SHA256SUMS.txt
+          body: |
+            Instalador y ZIP portable de **EdgeDock Studio ${{ github.ref_name }}** (Windows x64, enlazado estaticamente, sin dependencias externas).
+
+            | Archivo | Uso |
+            | --- | --- |
+            | `EdgeDockStudio-Setup-*.exe` | Instalador recomendado: `Program Files`, accesos directos y autoarranque opcional |
+            | `EdgeDockStudio-Portable-*.zip` | Portatil: descomprimir y ejecutar `EdgeDockStudio.exe` |
+            | `SHA256SUMS.txt` | Verificacion de integridad (SHA-256) |
+
+            Los datos del usuario (`%APPDATA%\EdgeDock`: clips.db, notas, config) se conservan al desinstalar.
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
