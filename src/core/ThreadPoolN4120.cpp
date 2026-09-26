@@ -178,7 +178,8 @@ void ThreadPoolN4120::WorkerLoop(int index) {
 
         // Patrón sin carreras: se lee el testigo ANTES de la última comprobación de cola,
         // de modo que ninguna publicación queda sin notificación.
-        const std::uint64_t stamp = notifyStamp_.load(std::memory_order_acquire);
+        // Sin const: WaitOnAddress exige PVOID como dirección de comparación.
+        std::uint64_t stamp = notifyStamp_.load(std::memory_order_acquire);
         if (Dequeue(task)) {
             task.Run();
             executed_.fetch_add(1, std::memory_order_relaxed);

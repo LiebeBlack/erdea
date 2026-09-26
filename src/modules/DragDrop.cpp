@@ -459,7 +459,7 @@ HRESULT STDMETHODCALLTYPE PanelDropTarget::Drop(IDataObject* dataObject, DWORD k
             if (wide != nullptr && length > 0) {
                 // Copia en el pool sincronizado: el drop no toca el heap del CRT y el
                 // callbacks recibe una vista válida mientras dure la llamada.
-                std::pmr::polymorphic_allocator<wchar_t> allocator{mem::PoolResource::Global()};
+                std::pmr::polymorphic_allocator<wchar_t> allocator{&mem::PoolResource::Global()};
                 std::pmr::wstring buffer(allocator);
                 buffer.assign(wide, length);
                 ::GlobalUnlock(medium.hGlobal);
